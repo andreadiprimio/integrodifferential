@@ -188,7 +188,7 @@ for N in tqdm(NS):
 
         # 3.1. Update counter
         ITER += 1
-        #   print(f'Iteration {ITER}')
+        # print(f'Iteration {ITER}')
 
         # 3.2. Compute integral term
         memoryOperator = computeMemory(guess)
