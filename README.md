@@ -1,2 +1,2 @@
 # integro-differential
-Python solver for integro-differential equations.
+Python solver for integro-differential equations. Test
