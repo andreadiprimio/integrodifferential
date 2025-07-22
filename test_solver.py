@@ -3,13 +3,13 @@ from scipy.integrate import solve_ivp, simpson
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-# WARNING! This code is only to replicate the five examples in Gelmi, Jorquera.
+# WARNING! This code is adapted to replicate the five examples in Gelmi, Jorquera.
 
 ######################################
 #       1. PROBLEM PARAMETERS        #
 ######################################
 
-TEST_CASE_ID = 5                                # Set to 1, 2, 3, 4 or 5.
+TEST_CASE_ID = 2                                # Set to 1, 2, 3, 4 or 5.
 VARIABLE_MEMORY = (TEST_CASE_ID == 4)           # True if memory integration range depends on time. For these test cases only case 4 is variable.
 
 match TEST_CASE_ID:                             # Initial conditions.
@@ -125,15 +125,17 @@ for N in tqdm(NS):
                 factor2 = y
         memory = np.zeros(N)
         if VARIABLE_MEMORY:
-            for i in range(1, N-1):
+            for i in range(N):
                 lowExtreme = lowerIntegration(MESH[i])
                 uppExtreme = upperIntegration(MESH[i])
-                lowIdx = np.searchsorted(MESH, lowExtreme)
-                uppIdx = np.searchsorted(MESH, uppExtreme)
-                quadMesh = np.unique(np.concatenate((np.array([lowExtreme]),  MESH[lowIdx:uppIdx],  np.array([uppExtreme]))))
-                factor1 = np.array([kernel(MESH[i], MESH[j]) for j in range(N)])
-                ynew = np.interp(quadMesh, MESH, factor1 * factor2)
-                memory[i] = simpson(ynew, quadMesh)
+                assert lowExtreme <= uppExtreme, "Lower extreme must be less than or equal to upper extreme."                
+                if lowExtreme != uppExtreme:
+                    lowIdx = np.searchsorted(MESH, lowExtreme)
+                    uppIdx = np.searchsorted(MESH, uppExtreme)
+                    quadMesh = np.unique(np.concatenate((np.array([lowExtreme]),  MESH[lowIdx:uppIdx],  np.array([uppExtreme]))))
+                    factor1 = np.array([kernel(MESH[i], MESH[j]) for j in range(N)])
+                    ynew = np.interp(quadMesh, MESH, factor1 * factor2)
+                    memory[i] = simpson(ynew, quadMesh)
         else:
             for i in range(N):
                 factor1 = np.array([kernel(MESH[i], MESH[j]) for j in range(N)])
@@ -170,7 +172,7 @@ for N in tqdm(NS):
         plt.plot(NS, ERRORS, label='Error plot', color='blue')
         plt.plot(NS, 1 / NS, '-.', label='order 1', color='red')
         plt.plot(NS, 1 / NS ** 0.5, '-.', label='order 1/2', color='black')
-        plt.title('Approximate solution vs exact solution')
+        plt.title('Error vs number of mesh points')
         plt.xlabel('x')
         plt.ylabel('y')
         plt.xscale('log')
