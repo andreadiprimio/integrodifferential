@@ -1,7 +1,8 @@
 import numpy as np
 from scipy.integrate import solve_ivp, simpson
 import matplotlib.pyplot as plt
-from tqdm import tqdm
+from tqdm.rich import tqdm
+from numba import njit
 
 # WARNING! This code is adapted to replicate the five examples in Gelmi, Jorquera.
 
@@ -9,10 +10,14 @@ from tqdm import tqdm
 #       1. PROBLEM PARAMETERS        #
 ######################################
 
-TEST_CASE_ID = 2                                # Set to 1, 2, 3, 4 or 5.
-VARIABLE_MEMORY = (TEST_CASE_ID == 4)           # True if memory integration range depends on time. For these test cases only case 4 is variable.
+# Following the order in Gelmi, Jorquera, set to 1, 2, 3, 4 or 5.
+TEST_CASE_ID = 4
 
-match TEST_CASE_ID:                             # Initial conditions.
+# Set to True if memory integration range depends on time. For these test cases only case 4 is variable.
+VARIABLE_MEMORY = (TEST_CASE_ID == 4)
+
+# Initial conditions based on the test case ID.
+match TEST_CASE_ID:
     case 1:
         initial = np.array([0])
     case 2:
@@ -25,10 +30,13 @@ match TEST_CASE_ID:                             # Initial conditions.
         initial = np.array([1, 1, 1, 1])
     case _:
         raise ValueError
-    
-T = 1                                           # Time horizon.
 
-def memorylessOperator(t, y):                   # Operator to solve the ODE without memory.
+# Time horizon.
+T = 1  
+
+# Operator to solve the ODE without memory.
+@njit
+def memorylessOperator(t, y):
     match TEST_CASE_ID:
         case 1:
             return y - 0.5 * t + 1 / (1 + t) - np.log(1 + t)
@@ -39,10 +47,11 @@ def memorylessOperator(t, y):                   # Operator to solve the ODE with
         case 4:
             return t * (1 + np.sqrt(t)) * np.exp(-np.sqrt(t)) - (t ** 2 + t + 1) * np.exp(-t)
         case 5:
-            A = np.array([[0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1], [0, 0, 0, 0]]) 
-            return A @ y + np.array([0, 0, 0, np.exp(t) - t])
+            return np.array([y[1], y[2], y[3], np.exp(t) - t])
 
-def kernel(t, s):                               # Integration kernel (the integral is in the variable s).
+# Integration kernel (the integral is in the variable s).
+@njit
+def kernel(t, s):
     match TEST_CASE_ID:
         case 1:
             return 1 / (np.log(2) ** 2) * t / (1 + s)
@@ -54,8 +63,9 @@ def kernel(t, s):                               # Integration kernel (the integr
             return t * s
         case 5:
             return t * s
-        
-def lowerIntegration(t):                        # Lower integration extreme in memory term.
+
+# Lower integration extreme in memory term.
+def lowerIntegration(t):
     match TEST_CASE_ID:
         case 1:
             return 0
@@ -68,7 +78,8 @@ def lowerIntegration(t):                        # Lower integration extreme in m
         case 5:
             return 0
 
-def upperIntegration(t):                        # Upper integration extreme in memory term.
+# Upper integration extreme in memory term.
+def upperIntegration(t):
     match TEST_CASE_ID:
         case 1:
             return 1
@@ -85,20 +96,41 @@ def upperIntegration(t):                        # Upper integration extreme in m
 #      2. NUMERICAL PARAMETERS       #
 ######################################
 
-TOL = 1e-8                                              # Tolerance for error check.
-NS = np.array([100]) 
-# NS = np.array([50, 100, 200, 500, 1000, 2000])        # Number of mesh points.
-SMOOTHING = 0.5                                         # Smoothing parameter.
-ITER = 0                                                # Counter for iterations.
-ERRORS = []                                             # Error array for accuracy test.
-PLOT_SOLUTION = True                                    # Plot solution?
-PLOT_ERRORS = False                                     # Plot error comparison?
+# Tolerance for error check.
+TOL = 1e-8
+
+# Number of mesh points, for accuracy testing multiple values are needed.
+# NS = np.array([500])
+NS = np.array([50, 100, 200, 500, 1000, 2000, 5000])
+
+# Smoothing parameter.
+SMOOTHING = 0.5
+
+# Maximum number of iterations.
+MAX_ITER = 200
+
+# Counter for iterations.
+ITER = 0
+
+# Error array for accuracy test.
+ERRORS = []
+
+# Plotting flags.
+PLOT_SOLUTION = True  
+PLOT_ERRORS = True 
+PLOT_CONVERGENCE = False
+
+######################################
+#         3. SOLVER ROUTINES         #
+######################################
 
 for N in tqdm(NS):
 
-    MESH = np.linspace(0, T, N)                         # Equispaced mesh.
+    # Equispaced mesh.
+    MESH = np.linspace(0, T, N)  # Equispaced mesh.
 
-    match TEST_CASE_ID:                                 # Exact solution.
+    # Exact solution based on the test case ID.
+    match TEST_CASE_ID:
         case 1:
             EXACT = np.log(1 + MESH)
         case 2:
@@ -110,52 +142,56 @@ for N in tqdm(NS):
         case 5:
             EXACT = np.exp(MESH)
 
-    ######################################
-    #         3. SOLVER ROUTINES         #
-    ######################################
+    # Compute memory term.
+    def computeMemory(y):
+        if TEST_CASE_ID == 3:
+            factor2 = y ** 2
+        else:
+            factor2 = y
 
-    def areSimilar(y1, y2):                             # Metric of similarity.
-        return np.linalg.norm(y1 - y2) <= TOL
-
-    def computeMemory(y):                               # Compute memory term.
-        match TEST_CASE_ID:
-            case 3:
-                factor2 = y ** 2
-            case _:
-                factor2 = y
         memory = np.zeros(N)
-        if VARIABLE_MEMORY:
+
+        # Vectorized computation for non-variable memory cases
+        if not VARIABLE_MEMORY:
+            # Pre-compute all kernel values at once
+            t_grid, s_grid = np.meshgrid(MESH, MESH, indexing='ij')
+            kernel_matrix = kernel(t_grid, s_grid)
+            integrand = kernel_matrix * factor2[np.newaxis, :]
+
+            # Use vectorized simpson integration
+            for i in range(N):
+                memory[i] = simpson(integrand[i], x=MESH)
+        else:
+            # Keep original approach for variable memory
             for i in range(N):
                 lowExtreme = lowerIntegration(MESH[i])
                 uppExtreme = upperIntegration(MESH[i])
-                assert lowExtreme <= uppExtreme, "Lower extreme must be less than or equal to upper extreme."                
+                assert lowExtreme <= uppExtreme, "Lower extreme must be less than or equal to upper extreme."
                 if lowExtreme != uppExtreme:
                     lowIdx = np.searchsorted(MESH, lowExtreme)
                     uppIdx = np.searchsorted(MESH, uppExtreme)
-                    quadMesh = np.unique(np.concatenate((np.array([lowExtreme]),  MESH[lowIdx:uppIdx],  np.array([uppExtreme]))))
+                    quadMesh = np.unique(
+                        np.concatenate((np.array([lowExtreme]), MESH[lowIdx:uppIdx], np.array([uppExtreme]))))
                     factor1 = np.array([kernel(MESH[i], MESH[j]) for j in range(N)])
                     ynew = np.interp(quadMesh, MESH, factor1 * factor2)
-                    memory[i] = simpson(ynew, quadMesh)
+                    memory[i] = simpson(ynew, x=quadMesh)
+
+        # Pre-allocate memory lookup for faster access
+        memory_interp = lambda t_val: memory[min(int(np.floor(np.clip(t_val, 0, T) * (N - 1) / T)), N - 1)]
+
+        if TEST_CASE_ID == 5:
+            def memoryOperator(t, y):
+                mem_val = memory_interp(t)
+                return memorylessOperator(t, y) + np.array([0, 0, 0, mem_val])
         else:
-            for i in range(N):
-                factor1 = np.array([kernel(MESH[i], MESH[j]) for j in range(N)])
-                memory[i] = simpson(factor1 * factor2, MESH)
-        match TEST_CASE_ID:
-            case 5:
-                def memoryOperator(t, y):
-                    j = np.floor(t * N / T).astype(int)
-                    if j == N:
-                        j -= 1
-                    return memorylessOperator(t, y) + np.array([0, 0, 0, memory[j]])
-            case _:
-                def memoryOperator(t, y):
-                    j = np.floor(t * N / T).astype(int)
-                    if j == N:
-                        j -= 1
-                    return memorylessOperator(t, y) + np.array([memory[j]])
+            def memoryOperator(t, y):
+                mem_val = memory_interp(t)
+                return memorylessOperator(t, y) + np.array([mem_val])
+
         return memoryOperator
 
-    def plotSolution(sol):                              # Routine to plot solution.
+
+    def plotSolution(sol):  # Routine to plot solution.
         plt.figure(figsize=(10, 4))
         plt.plot(MESH, sol, label='Solution plot', color='blue')
         plt.plot(MESH, EXACT, '-.', label='Exact solution', color='red')
@@ -166,8 +202,9 @@ for N in tqdm(NS):
         plt.legend()
         plt.show()
         return
-    
-    def plotError():                                    # Routine to plot errors.
+
+
+    def plotError():  # Routine to plot errors.
         plt.figure(figsize=(10, 4))
         plt.plot(NS, ERRORS, label='Error plot', color='blue')
         plt.plot(NS, 1 / NS, '-.', label='order 1', color='red')
@@ -182,31 +219,75 @@ for N in tqdm(NS):
         plt.show()
         return
 
-    # 3.0. Compute solution without memory
-    guess = solve_ivp(memorylessOperator, [0, T], initial, method='RK45', t_eval=MESH).y[0]
-    done = False
 
-    while not done:
+    def plotConvergence(iteration_errors):  # Routine to plot convergence.
+        plt.figure(figsize=(10, 4))
+        plt.semilogy(iteration_errors, 'b-o', label='Iteration error', markersize=4)
+        plt.title('Convergence: Error vs Iteration')
+        plt.xlabel('Iteration')
+        plt.ylabel('Error (log scale)')
+        plt.grid(True)
+        plt.legend()
+        plt.show()
+        return
+
+
+    # Reset iteration counter for each N
+    ITER = 0
+
+    # 3.0. Compute solution without memory (use same solver settings as main loop)
+    guess = solve_ivp(memorylessOperator,
+                               [0, T],
+                               initial,
+                               method='LSODA',
+                               t_eval=MESH,
+                               rtol=1e-8,
+                               atol=1e-10).y[0]
+    
+    done = False
+    iterationErrors = []  # Track convergence
+
+    while not done and ITER < MAX_ITER:
 
         # 3.1. Update counter
         ITER += 1
-        # print(f'Iteration {ITER}')
 
         # 3.2. Compute integral term
         memoryOperator = computeMemory(guess)
 
         # 3.3. Compute solution with estimated memory term
-        y = solve_ivp(memoryOperator, [0, T], initial, method='RK45', t_eval=MESH).y[0]
+        solution = solve_ivp(memoryOperator,
+                             [0, T],
+                             initial,
+                             method='LSODA',
+                             t_eval=MESH,
+                             rtol=1e-8,
+                             atol=1e-10).y[0]
 
         # 3.4. Check similarity and update guess
-        if areSimilar(y, guess):
-            done = True
-        else:
-            guess = SMOOTHING * y + (1 - SMOOTHING) * guess
+        currentError = np.sum((solution - guess) ** 2)
+        iterationErrors.append(currentError)
 
-    ERRORS.append(np.max(np.abs(y - EXACT)))
+        if currentError <= TOL:
+            done = True
+            print(f"[N = {N}] Converged after {ITER} iterations with error {currentError:.2e}")
+        else:
+            guess = SMOOTHING * solution + (1 - SMOOTHING) * guess
+
+    # Check if maximum iterations reached without convergence
+    if ITER >= MAX_ITER:
+        print(f"Warning: Maximum iterations ({MAX_ITER}) reached without convergence for N = {N}")
+        print(f"Final error: {iterationErrors[-1]:.2e}")
+
+    if PLOT_CONVERGENCE and len(iterationErrors) > 1:
+        plotConvergence(iterationErrors)
+
+    # Max absolute difference for final error
+    ERRORS.append(np.max(np.abs(solution - EXACT)))
 
 if PLOT_SOLUTION:
-    plotSolution(y)
+    plotSolution(solution)
 if PLOT_ERRORS:
     plotError()
+    accuracyOrder = (np.log(ERRORS[-1]) - np.log(ERRORS[-2])) / (np.log(1 / NS[-1]) - np.log(1 / NS[-2]))
+    print(f"Estimated accuracy order: {accuracyOrder:.2f}")
