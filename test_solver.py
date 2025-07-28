@@ -11,7 +11,7 @@ from numba import njit
 ######################################
 
 # Following the order in Gelmi, Jorquera, set to 1, 2, 3, 4 or 5.
-TEST_CASE_ID = 4
+TEST_CASE_ID = 1
 
 # Set to True if memory integration range depends on time. For these test cases only case 4 is variable.
 VARIABLE_MEMORY = (TEST_CASE_ID == 4)
@@ -120,6 +120,48 @@ PLOT_SOLUTION = True
 PLOT_ERRORS = True 
 PLOT_CONVERGENCE = False
 
+# Plotting routines.
+def plotSolution(sol):
+        plt.figure(figsize=(10, 4))
+        plt.plot(MESH, sol, label='Solution plot', color='blue')
+        plt.plot(MESH, EXACT, '-.', label='Exact solution', color='red')
+        plt.title('Approximate solution vs exact solution')
+        plt.xlabel('x')
+        plt.ylabel('y')
+        plt.grid(True)
+        plt.legend()
+        plt.show()
+        return
+
+def plotError():
+    plt.figure(figsize=(10, 4))
+    plt.plot(NS, ERRORS, label='Error plot', color='blue')
+    plt.plot(NS, 1 / NS, '-.', label='order 1', color='red')
+    plt.plot(NS, 1 / NS ** 0.5, '-.', label='order 1/2', color='black')
+    for i in range(1, len(ERRORS)):
+        accuracyOrder = (np.log(ERRORS[i]) - np.log(ERRORS[i-1])) / (np.log(1 / NS[i]) - np.log(1 / NS[i-1]))
+        plt.text((NS[i] + NS[i-1]) / 2, ERRORS[i] * 1.7, f"{accuracyOrder:.2f}", fontsize=8, ha='center') # TO DO: maybe find a better way to display the order of accuracy
+    plt.title('Error vs number of mesh points')
+    plt.xlabel('x')
+    plt.ylabel('y')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.grid(True)
+    plt.legend()
+    plt.show()
+    return
+
+def plotConvergence(iteration_errors):
+    plt.figure(figsize=(10, 4))
+    plt.semilogy(iteration_errors, 'b-o', label='Iteration error', markersize=4)
+    plt.title('Convergence: Error vs Iteration')
+    plt.xlabel('Iteration')
+    plt.ylabel('Error (log scale)')
+    plt.grid(True)
+    plt.legend()
+    plt.show()
+    return
+
 ######################################
 #         3. SOLVER ROUTINES         #
 ######################################
@@ -127,7 +169,7 @@ PLOT_CONVERGENCE = False
 for N in tqdm(NS):
 
     # Equispaced mesh.
-    MESH = np.linspace(0, T, N)  # Equispaced mesh.
+    MESH = np.linspace(0, T, N)
 
     # Exact solution based on the test case ID.
     match TEST_CASE_ID:
@@ -190,48 +232,6 @@ for N in tqdm(NS):
 
         return memoryOperator
 
-
-    def plotSolution(sol):  # Routine to plot solution.
-        plt.figure(figsize=(10, 4))
-        plt.plot(MESH, sol, label='Solution plot', color='blue')
-        plt.plot(MESH, EXACT, '-.', label='Exact solution', color='red')
-        plt.title('Approximate solution vs exact solution')
-        plt.xlabel('x')
-        plt.ylabel('y')
-        plt.grid(True)
-        plt.legend()
-        plt.show()
-        return
-
-
-    def plotError():  # Routine to plot errors.
-        plt.figure(figsize=(10, 4))
-        plt.plot(NS, ERRORS, label='Error plot', color='blue')
-        plt.plot(NS, 1 / NS, '-.', label='order 1', color='red')
-        plt.plot(NS, 1 / NS ** 0.5, '-.', label='order 1/2', color='black')
-        plt.title('Error vs number of mesh points')
-        plt.xlabel('x')
-        plt.ylabel('y')
-        plt.xscale('log')
-        plt.yscale('log')
-        plt.grid(True)
-        plt.legend()
-        plt.show()
-        return
-
-
-    def plotConvergence(iteration_errors):  # Routine to plot convergence.
-        plt.figure(figsize=(10, 4))
-        plt.semilogy(iteration_errors, 'b-o', label='Iteration error', markersize=4)
-        plt.title('Convergence: Error vs Iteration')
-        plt.xlabel('Iteration')
-        plt.ylabel('Error (log scale)')
-        plt.grid(True)
-        plt.legend()
-        plt.show()
-        return
-
-
     # Reset iteration counter for each N
     ITER = 0
 
@@ -289,5 +289,3 @@ if PLOT_SOLUTION:
     plotSolution(solution)
 if PLOT_ERRORS:
     plotError()
-    accuracyOrder = (np.log(ERRORS[-1]) - np.log(ERRORS[-2])) / (np.log(1 / NS[-1]) - np.log(1 / NS[-2]))
-    print(f"Estimated accuracy order: {accuracyOrder:.2f}")
