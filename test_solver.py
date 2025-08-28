@@ -151,9 +151,9 @@ def plotError():
     plt.show()
     return
 
-def plotConvergence(iteration_errors):
+def plotConvergence(iterationErrors):
     plt.figure(figsize=(10, 4))
-    plt.semilogy(iteration_errors, 'b-o', label='Iteration error', markersize=4)
+    plt.semilogy(iterationErrors, 'b-o', label='Iteration error', markersize=4)
     plt.title('Convergence: Error vs Iteration')
     plt.xlabel('Iteration')
     plt.ylabel('Error (log scale)')
