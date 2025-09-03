@@ -10,8 +10,8 @@ from numba import jit, njit
 
 # Problem parameters.
 alpha = 1.0
-beta = 1.0
-gamma = 2.0
+beta = 10.0
+gamma = 20.0
 delta = 1.0
 rho = 1.0
 
@@ -19,19 +19,19 @@ rho = 1.0
 initial = [0.1, 0.1, 0.1, 0.1]
 
 # Energy mode.
-modes = np.arange(1, 6)
+modes = np.arange(1, 5, 1)
 
 # Time horizon.
-T = 1000
+T = 100
 
 # Truncation parameter.
-TRUNCATION = 20.0
+TRUNCATION = 40.0
 
 # Operator to solve the ODE without memory.
 # @njit # Careful: JIT compilation with Numba causes issues with array operations here
 def memorylessOperator(t, y):
     val2 = - gamma * mode * y[0] - beta * mode * y[1] - (delta * mode + alpha) * y[2] + rho * mode * y[3]
-    val3 = - rho * mode * gamma / beta * y[1] - rho * mode * y[2] - mode * y[3]    
+    val3 = - rho * mode * gamma / beta * y[1] - rho * mode * y[2] - mode * y[3]
     return np.array([y[1], y[2], val2, val3])
 
 # Integration kernel (the integral is in the variable s). This is the kernel g.
@@ -53,7 +53,8 @@ def computeEnergy(vectorSolution, mode):
     v = vectorSolution[1]
     w = vectorSolution[2]
     theta = vectorSolution[3]
-    energy = (1 + mode) * u ** 2 + (1 + mode) * v ** 2 + w ** 2 + theta ** 2
+    # energy = (1 + mode) * u ** 2 + (1 + mode) * v ** 2 + w ** 2 + theta ** 2
+    energy = 0.5 * (beta * (1 + mode) * (v + gamma / beta * u) ** 2 + (w + gamma / beta * v) ** 2 + gamma * alpha / beta ** 2 * (beta - gamma / alpha) * v ** 2 + delta * gamma / beta * (1 + mode) * v ** 2 + theta ** 2)
     eta = np.zeros(N) # weighted norm
     kernelVals = mu(MESH) # pre-compute all values
     for i in range(N): # fix t
@@ -67,7 +68,8 @@ def computeEnergy(vectorSolution, mode):
         for j in range(i, N):
             integrand2[j-i] = (1 + mode) * (thetaIntegral + initial[-1] * (quadMesh2[j-i] - MESH[i])) ** 2 * kernelVals[j]
         eta[i] = simpson(integrand1, x=quadMesh1) + simpson(integrand2, x=quadMesh2)
-    energy += eta
+    # energy += eta
+    energy += 0.5 * eta
     return energy
 
 ######################################
@@ -78,7 +80,7 @@ def computeEnergy(vectorSolution, mode):
 TOL = 1e-8
 
 # Number of mesh points
-N = 1000
+N = 500
 
 # Smoothing parameter.
 SMOOTHING = 0.9
@@ -113,8 +115,8 @@ def plotEnergy():
 def plotConvergence(iterationErrors):
     plt.figure(figsize=(10, 4))
     plt.semilogy(iterationErrors, 'b-o', label='Iteration error', markersize=4)
-    plt.title('Convergence: Error vs Iteration')
-    plt.xlabel('Iteration')
+    plt.title('Convergence: Error vs Iterations')
+    plt.xlabel('Iterations')
     plt.ylabel('Error (log scale)')
     plt.grid(True)  
     plt.legend()
@@ -142,7 +144,7 @@ for mode in tqdm(modes):
             quadMesh = MESH[0:i+1]
             factor1 = np.array([kernel(MESH[i], point) for point in quadMesh])
             ynew = factor1 * factor2[0:i+1]
-            memory[i] = simpson(ynew, x=quadMesh) + mode * y[i] - initial[-1] * mode * np.exp(-MESH[i])
+            memory[i] = simpson(ynew, x=quadMesh) + mode * y[i] + initial[-1] * mode * np.exp(- MESH[i])
 
         memory_interp = lambda t_val: memory[min(int(np.floor(np.clip(t_val, 0, T) * (N - 1) / T)), N - 1)]
         # memory_interp = lambda t_val: np.interp(t_val, MESH, memory)
