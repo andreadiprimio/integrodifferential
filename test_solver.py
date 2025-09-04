@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from tqdm.rich import tqdm
 from numba import njit
 
+plt.rcParams['text.usetex'] = True
+
 # WARNING! This code is adapted to replicate the five examples in Gelmi, Jorquera.
 
 ######################################
