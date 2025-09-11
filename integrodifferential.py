@@ -99,49 +99,67 @@ class IntegroDifferentialProblem(ABC):
         if self.Settings.dump_parameters:
             filePath = self.Settings.path_prefix + 'problem_parameters_' + self.Settings.dump_label + '.txt'
             params = asdict(self.ProblemData)
-            np.savetxt(filePath, np.array([params[k] for k in params.keys()]), header=', '.join([k for k in params.keys()]))
+            with open(filePath, 'w') as file:
+                for k in params.keys():
+                    file.write(str(k)+': '+str(params[k])+'\n')
+                file.close()
             filePath = self.Settings.path_prefix + 'numerical_parameters_' + self.Settings.dump_label + '.txt'
             params = asdict(self.NumericalParameters)
-            np.savetxt(filePath, np.array([params[k] for k in params.keys()]), header=', '.join([k for k in params.keys()]))
+            with open(filePath, 'w') as file:
+                for k in list(params.keys())[:-2]:
+                    file.write(str(k)+': '+str(params[k])+'\n')
+                file.close()
         if self.Settings.dump_solution:
             filePath = self.Settings.path_prefix + 'solution_' + self.Settings.dump_label + '.txt'
             np.savetxt(filePath, self.Output.solution, header="Solution data")
         return
     
-    def plot(self, save_fig: bool = False, flabel: str = 'solution_plot', show_exact: bool = False, fig_size: tuple[float, ] = (3.5, 3.5), names: list[str] = None):
+    def plot(self, save_fig: bool = False, flabel: str = 'solution_plot', show_exact: bool = False, show_errors: bool = False, fig_size: tuple[float, float] = (3.5, 3.5), names: list[str] = None):
         """
         Plots solution.
         """
+        invalid = "\\/"
         plt.rcParams['text.usetex'] = True
         plt.rcParams['figure.figsize'] = fig_size[0], fig_size[1]
         plt.rcParams["savefig.bbox"] = 'tight'
         plt.rcParams["savefig.dpi"] = 'figure'
         plt.rcParams["savefig.format"] = 'pdf'
         if names is None:
-            names = [f'$y_{i+1}$' for i in range(len(self.Output.solution))]
+            names = [f'y_{{{i+1}}}' for i in range(len(self.Output.solution))]
         if show_exact:
             exact = self.NumericalParameters.exact(self.NumericalParameters.mesh)
         for i in range(len(self.Output.solution)):
-            plt.plot(self.NumericalParameters.mesh, self.Output.solution[i], label='Solution plot ('+names[i]+')', color='blue')
+            plt.plot(self.NumericalParameters.mesh, self.Output.solution[i], label='Solution plot ($'+names[i]+'$)', color='blue')
             if show_exact:
                 plt.plot(self.NumericalParameters.mesh, exact[i], '-.', label='Exact solution', color='red')
-                plt.title('Approximate solution vs exact solution ('+names[i]+')')
+                plt.title('Approximate solution vs exact solution ($'+names[i]+'$)')
             else:
-                plt.title('Approximate solution ('+names[i]+')')
+                plt.title('Approximate solution ($'+names[i]+'$)')
             plt.xlabel('$t$')
-            plt.ylabel(names[i])
+            plt.ylabel('$'+names[i]+'$')
             plt.grid(True)
             plt.legend()
             if save_fig:
-                plt.savefig(self.Settings.path_prefix + flabel + f'_{names[i]}.pdf')
+                plt.savefig(self.Settings.path_prefix + flabel + f'_{names[i].strip(invalid)}.pdf')
                 plt.close()
             else:
                 plt.show()
+            if show_errors:
+                plt.semilogy(self.NumericalParameters.mesh, np.abs(self.Output.solution[i] - exact[i]), color = 'blue')
+                plt.title('Error over time ($'+names[i]+'$)')
+                plt.xlabel('$t$')
+                plt.ylabel(f'$|{names[i]}^{{exact}} - {names[i]}|$')
+                plt.grid(True)
+                if save_fig:
+                    plt.savefig(self.Settings.path_prefix + 'error' + f'_{names[i].strip(invalid)}.pdf')
+                    plt.close()
+                else:
+                    plt.show()
         return
     
     def __compute_right_hand_side(self, t: float, y: np.ndarray) -> np.ndarray:
         """
-        Internal routine to estimate y' as F(t, y) + g(t).
+        Internal routine to estimate y' without memory as F(t, y) + g(t).
         """
         return self.memoryless_operator(t, y) + self.source(t)
     

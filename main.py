@@ -94,15 +94,17 @@ def main():
     solver.NumericalParameters.exact = solver.exact
 
     # === Configure settings ===
-    solver.Settings.dump_parameters = False
-    solver.Settings.dump_solution = False
-    solver.Settings.dump_convergence_data = False
+    solver.Settings.dump_parameters = True
+    solver.Settings.dump_solution = True
+    solver.Settings.dump_convergence_data = True
+    solver.Settings.path_prefix = './test/validation/'
+    solver.Settings.dump_label = 'validation'
 
     # === Solve ===
     solver.solve()
 
     # === Plot ===
-    solver.plot(save_fig=False, show_exact=True, names=['$u$', '$u_t$', '$u_{tt}$', '$\\theta$'])
+    solver.plot(save_fig=True, show_errors=True, show_exact=True, names=['u', 'u_t', 'u_{tt}', '\\theta'])
 
 if __name__ == "__main__":
     main()
