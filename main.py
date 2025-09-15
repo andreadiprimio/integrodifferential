@@ -1,7 +1,9 @@
 import numpy as np
 from scipy.integrate import simpson
 import matplotlib.pyplot as plt
+from tqdm.rich import tqdm
 from integrodifferential import IntegroDifferentialProblem
+from energy_analyzer import EnergyDecayAnalyzer
 
 class MGTGPSolver(IntegroDifferentialProblem):
 
@@ -12,10 +14,7 @@ class MGTGPSolver(IntegroDifferentialProblem):
         """
         The function g such that y' = F(t, y) + memory(t, y) + g(t).
         """
-        return np.array([0, 0, \
-                     2 * (self.ProblemData.alpha + self.ProblemData.delta * self.ProblemData.mode) + 2 * self.ProblemData.beta * self.ProblemData.mode * t + self.ProblemData.gamma * self.ProblemData.mode * (t ** 2 + 0.1) - self.ProblemData.rho * self.ProblemData.mode * (0.1 * np.cos(t) + t), \
-                     # 2 * t + mode * initial[-1] * np.exp(-t) + mode * ((t ** 2 - 2 * t + 2.1) - 2.1 * np.exp(-t)) + 2 * rho * mode + 2 * rho * gamma / beta * mode * t
-                     - 0.1 * np.sin(t) + 1 + self.ProblemData.mode * self.ProblemData.initial[-1] * np.exp(-t) + self.ProblemData.mode * (0.1 * 0.5 * (np.cos(t) + np.sin(t) - np.exp(-t)) + t - 1 + np.exp(-t)) + 2 * self.ProblemData.rho * self.ProblemData.mode + 2 * self.ProblemData.rho * self.ProblemData.gamma / self.ProblemData.beta * self.ProblemData.mode * t])
+        return np.array([0, 0, 0, 0])
 
     def memoryless_operator(self, t: float, y: np.ndarray) -> np.ndarray:
         """Computes F(t, y), i.e. the ODE part without memory."""
@@ -63,48 +62,89 @@ class MGTGPSolver(IntegroDifferentialProblem):
         val = np.exp(-t)
         return np.where(t <= truncation, val, np.zeros_like(t))
     
-    def exact(self, t: np.ndarray) -> np.ndarray:
+    def compute_energy(self) -> np.ndarray:
         """
-        Computes exact solution.
+        Computes energy relative to mode, assuming theta(s) = theta(0) for all s < 0.
         """
-        y1 = 0.1 + t ** 2
-        y2 = 2 * t
-        y3 = 2 * np.ones(self.NumericalParameters.n_elements)
-        y4 = 0.1 * np.cos(t) + t
-        return [y1, y2, y3, y4]
+        u = self.Output.solution[0]
+        v = self.Output.solution[1]
+        w = self.Output.solution[2]
+        theta = self.Output.solution[3]
+        energy = (1 + self.ProblemData.mode) * u ** 2 + (1 + self.ProblemData.mode) * v ** 2 + w ** 2 + theta ** 2
+        energy_correct = 0.5 * (self.ProblemData.beta * (1 + self.ProblemData.mode) * (v + self.ProblemData.gamma / self.ProblemData.beta * u) ** 2 + (w + self.ProblemData.gamma / self.ProblemData.beta * v) ** 2 + self.ProblemData.gamma * self.ProblemData.alpha / self.ProblemData.beta ** 2 * (self.ProblemData.beta - self.ProblemData.gamma / self.ProblemData.alpha) * v ** 2 + self.ProblemData.delta * self.ProblemData.gamma / self.ProblemData.beta * (1 + self.ProblemData.mode) * v ** 2 + theta ** 2)
+        eta = np.zeros(self.NumericalParameters.n_elements) # weighted norm
+        mu_vals = self.mu(self.NumericalParameters.mesh) # pre-compute all values
+        for i in range(self.NumericalParameters.n_elements): # fix t
+            quad_mesh_1 = self.NumericalParameters.mesh[0:i+1] # range [0, t]
+            quad_mesh_2 = self.NumericalParameters.mesh[i:self.NumericalParameters.n_elements] # range [t, T] (ideally infty, should be up to TRUNCATION, nothing changes if TRUNCATION < T)
+            integrand_1 = np.zeros(i+1) # maybe better names?
+            integrand_2 = np.zeros(self.NumericalParameters.n_elements-i)
+            for j in range(i+1):
+                integrand_1[j] = (1 + self.ProblemData.mode) * (simpson(theta[i-j:i+1], x=self.NumericalParameters.mesh[i-j:i+1]) ** 2) * mu_vals[j]
+            thetaIntegral = simpson(theta[0:i+1], x=quad_mesh_1) # integral of theta from 0 to t
+            for j in range(i, self.NumericalParameters.n_elements):
+                integrand_2[j-i] = (1 + self.ProblemData.mode) * (thetaIntegral + self.ProblemData.initial[-1] * (quad_mesh_2[j-i] - self.NumericalParameters.mesh[i])) ** 2 * mu_vals[j]
+            eta[i] = simpson(integrand_1, x=quad_mesh_1) + simpson(integrand_2, x=quad_mesh_2)
+        energy += eta
+        energy_correct += 0.5 * eta
+        return energy, energy_correct
 
 def main():
     # === Instantiate solver ===
-    params = {'alpha': 1.0,
-              'beta': 100.0,
-              'gamma': 20.0,
+    params = {'alpha': 49.0,
+              'beta': 50.0,
+              'gamma': 2500.0,
               'delta': 1.0,
               'rho': 1.0,
-              'mode': 4.0}
-    initial_conditions = [0.1, 0, 2.0, 0.1]
+              'mode': 1.0}
+    initial_conditions = [0.1, 0.1, 0.1, 0.1]
     solver = MGTGPSolver(initial_conditions, params)
 
     # === Configure numerical parameters ===
     solver.NumericalParameters.n_elements = 500
-    solver.NumericalParameters.final_time = 50
+    solver.NumericalParameters.final_time = 450
     solver.NumericalParameters.tol = 1e-8
     solver.NumericalParameters.max_iter = 300
     solver.NumericalParameters.smoothing = 0.9
     solver.NumericalParameters.solver = "Radau"
-    solver.NumericalParameters.exact = solver.exact
 
     # === Configure settings ===
-    solver.Settings.dump_parameters = True
-    solver.Settings.dump_solution = True
-    solver.Settings.dump_convergence_data = True
-    solver.Settings.path_prefix = './test/validation/'
-    solver.Settings.dump_label = 'validation'
+    solver.Settings.dump_parameters = False
+    solver.Settings.dump_solution = False
+    solver.Settings.dump_convergence_data = False
+    solver.Settings.path_prefix = './test/exponential_kernel_2/'
+    solver.Settings.dump_label = 'exponential'
+
+    # === Set up modes ===
+    modes = np.arange(4, 11)
+    energies = []
+    energies_correct = []
 
     # === Solve ===
-    solver.solve()
+    for mode in tqdm(modes):
+        solver.ProblemData.mode = mode
+        if mode == 4:
+            solver.NumericalParameters.final_time = 50
+        
+        if mode == modes[-1]:
+            solver.Settings.dump_parameters = True
+            solver.Settings.dump_solution = True
+            solver.Settings.dump_convergence_data = True
+        solver.solve()
 
-    # === Plot ===
-    solver.plot(save_fig=True, show_errors=True, show_exact=True, names=['u', 'u_t', 'u_{tt}', '\\theta'])
+        # === Plot ===
+        # solver.plot(save_fig=True, show_errors=True, show_exact=True, names=['u', 'u_t', 'u_{tt}', '\\theta'])
+
+        # === Compute energy ===
+        val, val_correct = solver.compute_energy()
+        energies.append(val)
+        energies_correct.append(val_correct)
+    
+    eda = EnergyDecayAnalyzer(energies)
+    eda.energy_plotter(save_fig=True, fpath=solver.Settings.path_prefix)
+
+    eda = EnergyDecayAnalyzer(energies_correct)
+    eda.energy_plotter(save_fig=True, fpath=solver.Settings.path_prefix + 'energy_correct/')
 
 if __name__ == "__main__":
     main()

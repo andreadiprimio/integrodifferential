@@ -195,7 +195,9 @@ class IntegroDifferentialProblem(ABC):
         return
     
     def solve(self):
-        """Solve routine."""
+        """
+        Solve routine.
+        """
         self.memory = np.zeros(self.NumericalParameters.n_elements)
         self.NumericalParameters.mesh = np.linspace(0, self.NumericalParameters.final_time, self.NumericalParameters.n_elements)
         iter = 0
