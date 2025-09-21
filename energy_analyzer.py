@@ -42,10 +42,11 @@ class EnergyDecayAnalyzer:
             plt.show()
         return
     
+    def energy_dumper(self, fname: str = './'):
+        np.savetxt(fname, self.energies, header="Energy data")
+        return
+    
     def __energy_cleaner(self) -> np.ndarray:
         for i in range(len(self.energies)):
             self.energies[i] = np.where(self.energies[i] >= np.finfo(np.float64).eps, self.energies[i], np.nan)
         return
-    
-    def estimate_decay_rate(energies: np.ndarray) -> float:
-        pass
