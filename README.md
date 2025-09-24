@@ -1,18 +1,21 @@
 # integrodifferential: a Python solver for integro-differential equations
-A Python-based solver for linear ordinary integro-differential equations.
+A Python-based solver for quasilinear ordinary integro-differential equations.
 ## What is the purpose of this solver?
 The aim of this project is to provide a user-friendly tool to numerically solve ordinary differential equations with memory taking the form
 
-$$u^{(n)} + g(t, u, u', ..., u^{(n-1)}) + \int_0^{+\infty} k(t,s)F(u(s)) \mathrm{d} s = 0$$
+$$u^{(n)} + f(t, u, u', ..., u^{(n-1)}) + \int_0^{+\infty} g(t,s)F(u(s)) \mathrm{d} s = 0$$
 
-endowed with suitable initial conditions. The code workflow is briefly described in the following diagram.
-
+endowed with suitable initial conditions. Assuming to know all necessary input data, the code workflow is briefly described in the following diagram. 
 ```mermaid
-flowchart LR;
-    A["Solve $u^{(n)} + g(t, u, u', ..., u^{(n-1)}) = 0$"]-->B;
-    B-->D;
-    C-->D;
+flowchart LR
+    A["Solve the equation without integral term"] --> B[""Estimate memory term using the computed solution""]
+    B --> C["Solve the equation using the computed memory term as forcing"]
+    C --> D{"The algorithm has reached convergence?"}
+    D -- Yes --- E["Output the new solution"]
+    D -- No --- F["Update guessed solution"]
+    F --> B
 ```
+Once a solution is obtained, a plotting method is already set up for visualization, possibly also displaying a known exact solution for a direct comparison.
 ## Requirements and dependencies
 The following requirements are necessary to run the solver:
 - Python 3.12.3 or higher
