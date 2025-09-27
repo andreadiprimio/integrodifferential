@@ -36,5 +36,5 @@ The folder `test` contains several examples of ready-to-run scripts analyzing th
 [TODO]
 ## Authors
 Andrea Di Primio (andrea.diprimio@polimi.it)  
-Lorenzo Liverani (email)
+Lorenzo Liverani (lorenzo.liverani@fau.de)
 
