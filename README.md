@@ -34,7 +34,7 @@ The code can run on any OS that has Python installed.
 The folder `test` contains several examples of ready-to-run scripts analyzing the Moore-Gibson-Thompson equation.
 ## References
 [1] C. A. Gelmi, H. Jorquera. [IDSOLVER: A general purpose solver for 
-nth-order integro-differential equations](https://doi.org/10.1016/j.cpc.2013.09.008). In: *Computer Physics Communcations* **185**:1 (2014), pp. 392-397.
+nth-order integro-differential equations](https://doi.org/10.1016/j.cpc.2013.09.008). In: *Computer Physics Communications* **185**:1 (2014), pp. 392-397.
 ## Authors
 Andrea Di Primio (andrea.diprimio@polimi.it)  
 Lorenzo Liverani (lorenzo.liverani@fau.de)
