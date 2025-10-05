@@ -3,7 +3,7 @@ A Python-based solver for quasilinear ordinary integro-differential equations.
 ## What is the purpose of this solver?
 The aim of this project is to provide a user-friendly tool to numerically solve ordinary differential equations with memory taking the form
 
-$$u^{(n)} + f(t, u, u', ..., u^{(n-1)}) + \int_0^{+\infty} g(t,s)F(u(s)) \mathrm{d} s = 0$$
+$$u^{(n)}(t) + f(t, u, u', ..., u^{(n-1)}) + \int_0^{+\infty} g(t,s)F(u(s)) \mathrm{d} s = 0$$
 
 endowed with suitable initial conditions. Assuming to know all necessary input data, the code workflow is briefly described in the following diagram. 
 ```mermaid
@@ -33,7 +33,8 @@ The code can run on any OS that has Python installed.
 ## Test cases
 The folder `test` contains several examples of ready-to-run scripts analyzing the Moore-Gibson-Thompson equation.
 ## References
-[TODO]
+[1] C. A. Gelmi, H. Jorquera. [IDSOLVER: A general purpose solver for 
+nth-order integro-differential equations](https://doi.org/10.1016/j.cpc.2013.09.008). In: *Computer Physics Communcations* **185**:1 (2014), pp. 392-397.
 ## Authors
 Andrea Di Primio (andrea.diprimio@polimi.it)  
 Lorenzo Liverani (lorenzo.liverani@fau.de)
