@@ -131,10 +131,10 @@ class IntegroDifferentialProblem(ABC):
         for i in range(len(self.Output.solution)):
             plt.plot(self.NumericalParameters.mesh, self.Output.solution[i], label='Solution plot ($'+names[i]+'$)', color='blue')
             if show_exact:
-                plt.plot(self.NumericalParameters.mesh, exact[i], '-.', label='Exact solution', color='red')
-                plt.title('Approximate solution vs exact solution ($'+names[i]+'$)')
+                plt.plot(self.NumericalParameters.mesh, exact[i], '-.', label='Exact solution ($'+names[i]+'$)', color='red')
+                plt.title('Approximate solution vs exact solution')
             else:
-                plt.title('Approximate solution ($'+names[i]+'$)')
+                plt.title('Approximate solution')
             plt.xlabel('$t$')
             plt.ylabel('$'+names[i]+'$')
             plt.grid(True)
@@ -148,7 +148,7 @@ class IntegroDifferentialProblem(ABC):
                 plt.semilogy(self.NumericalParameters.mesh, np.abs(self.Output.solution[i] - exact[i]) / max(np.max(np.abs(exact[i])), 1e-12), color = 'blue')
                 plt.title('Relative error over time ($'+names[i]+'$)')
                 plt.xlabel('$t$')
-                plt.ylabel(f'$|{names[i]}^{{exact}} - {names[i]}|$')
+                plt.ylabel(f'Relative errror')
                 plt.grid(True)
                 if save_fig:
                     plt.savefig(self.Settings.path_prefix + 'error' + f'_{names[i].strip(invalid)}.pdf')

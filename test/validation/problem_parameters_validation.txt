@@ -4,4 +4,4 @@ gamma: 20.0
 delta: 1.0
 rho: 1.0
 mode: 4.0
-initial: [0.1, 0, 2.0, 0.1]
+initial: [0.1, 0.0, 2.0, 0.1]

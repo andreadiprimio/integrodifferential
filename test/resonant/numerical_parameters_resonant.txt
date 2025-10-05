@@ -3,4 +3,4 @@ tol: 1e-08
 smoothing: 0.9
 max_iter: 300
 solver: Radau
-final_time: 50
+final_time: 10

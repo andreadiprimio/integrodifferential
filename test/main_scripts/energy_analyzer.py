@@ -8,15 +8,15 @@ class EnergyDecayAnalyzer:
         Constructor.
         """
         self.energies = energies
-        pass
+        return
 
     def energy_plotter(self, save_fig: bool = False, fpath: str = './'):
         """
         Energy plotter. Modify as needed.
         """
         self.__energy_cleaner()
-        T = 450
-        N = 500
+        T = 1000
+        N = 2000
         for i in range(3):
             plt.semilogy(np.linspace(0, T, N), self.energies[i], label=f'Mode {i+1}', markersize=2)
             plt.title('Energy over time (lower modes)')
@@ -28,6 +28,7 @@ class EnergyDecayAnalyzer:
             plt.savefig(fpath + 'energy_lower_modes.pdf')
             plt.close()
         T = 50
+        N = 1000
         for i in range(4, len(self.energies)):
             plt.semilogy(np.linspace(0, T, N), self.energies[i], label=f'Mode {i+1}', markersize=2)
             plt.title('Energy over time (higher modes)')
@@ -42,8 +43,9 @@ class EnergyDecayAnalyzer:
             plt.show()
         return
     
-    def energy_dumper(self, fname: str = './'):
-        np.savetxt(fname, self.energies, header="Energy data")
+    def energy_dumper(self, fpath: str = './'):
+        fname = fpath + f'energies.txt'
+        np.savetxt(fname, self.energies, header=f"Energy data")
         return
     
     def __energy_cleaner(self) -> np.ndarray:
