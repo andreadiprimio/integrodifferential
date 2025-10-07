@@ -1,4 +1,4 @@
-# integrodifferential: a Python solver for integro-differential equations
+# `integrodifferential`: a Python solver for integro-differential equations
 A Python-based solver for quasilinear ordinary integro-differential equations.
 ## What is the purpose of this solver?
 The aim of this project is to provide a user-friendly tool to numerically solve ordinary differential equations with memory taking the form
